@@ -483,7 +483,7 @@ program mpas2esmf
    integer, dimension(:), pointer :: nEdgesOnDualCell
    integer, dimension(:,:), pointer :: verticesOnCell, elementConn
    double precision, dimension(:,:), pointer :: latVerticesOnCell, lonVerticesOnCell, &
-                                                centerCoords, nodeCoords 
+                                                nodeCoords 
    double precision :: sphere_radius
    integer :: on_sphere
    integer, dimension(:), pointer :: grid_imask
@@ -518,13 +518,21 @@ program mpas2esmf
    write(0,*) "nDualVertices", nDualVertices
    write(0,*) "nDualCells", nDualCells
 
+   !done, esmf, local var
+   !y, nodeCount, nDualVertices
+   !y, elementCount, nDualCells
+   !y, maxNodePElement, maxDualEdges
+   !y, coordDim, <hardcoded to 2 in writer>
+   !y, numElementConn, nEdgesOnDualCell
+   !n, nodeCoords, sphere: [lat|lon]Cell plane: [x|y]Cell  ! not sure about this...
+   !n, elementConn(2D), 
+
    stop
 
-   write(0,'(A)',advance='no') "mpas2esmf: Allocating and creating fields for SCRIP file ... "
+   write(0,'(A)',advance='no') "mpas2esmf: Allocating and creating fields for ESMF file ... "
 
    allocate(latVerticesOnCell(maxEdges,nCells))
    allocate(lonVerticesOnCell(maxEdges,nCells))
-   allocate(centerCoords(2,nCells))
    allocate(nodeCoords(2,nVertices))
    allocate(elementConn(maxEdges,nCells))
    allocate(grid_imask(nCells))
@@ -540,8 +548,6 @@ program mpas2esmf
          lonVerticesOnCell(iVtx,iCell) = lonVerticesOnCell(iVtx-1,iCell)
          elementConn(iVtx,iCell)       = -1
       end do
-      centerCoords(1,iCell) = lonCell(iCell)
-      centerCoords(2,iCell) = latCell(iCell)
    end do
 
    do iVtx=1,nVertices
@@ -551,17 +557,9 @@ program mpas2esmf
 
    grid_imask(:) = 1
 
-   write(0,*) "DONE!"
-   write(0,'(A)',advance='no') "mpas2esmf: Creating fields for ESMF files ... "
-
    do iVtx=1,nVertices
       nodeCoords(1,iVtx) = nodeCoords(1,iVtx) * 90.0 / asin(1.0)
       nodeCoords(2,iVtx) = nodeCoords(2,iVtx) * 90.0 / asin(1.0)
-   end do
-
-   do iCell=1,nCells
-      centerCoords(1,iCell) = centerCoords(1,iCell) * 90.0 / asin(1.0)
-      centerCoords(2,iCell) = centerCoords(2,iCell) * 90.0 / asin(1.0)
    end do
 
    write(0,*) "DONE!"
@@ -584,7 +582,6 @@ program mpas2esmf
 
    deallocate(latVerticesOnCell)
    deallocate(lonVerticesOnCell)
-   deallocate(centerCoords)
    deallocate(nodeCoords)
    deallocate(elementConn)
    deallocate(grid_imask)
