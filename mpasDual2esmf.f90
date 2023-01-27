@@ -203,7 +203,7 @@ module read_mesh
           stop 
       end if
 
-      print *, "\n on_sphere_str", on_sphere_str, "\n"
+      write(0,*) " on_sphere_str: ", on_sphere_str
       if (on_sphere_str .eq. "YES") then
         on_sphere = 1
       else if (on_sphere_str .eq. "NO") then
