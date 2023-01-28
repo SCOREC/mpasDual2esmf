@@ -238,13 +238,13 @@ module write_desc
       character (len=*), intent(in) :: title
       character (len=*), intent(in) :: datestring
       integer, intent(inout) :: nCells, nVertices, maxEdges
-      double precision, dimension(:,:), pointer :: centerCoords, nodeCoords
+      double precision, dimension(:,:), pointer :: nodeCoords
       integer, dimension(:,:), pointer :: elementConn
       integer, dimension(:), pointer :: nEdgesOnCell
    
    
       integer :: ncid, nVerticesID, nCellsID, maxNodePElementID, coordDimID, status
-      integer :: nodeCoordsID, elementConnID, numElementConnID, centerCoordsID, &
+      integer :: nodeCoordsID, elementConnID, numElementConnID, &
                  elementAreaID, elementMaskID
       integer, dimension(1) :: id1
       integer, dimension(2) :: id2
@@ -341,9 +341,9 @@ module write_desc
       id2(1) = coordDimID
       id2(2) = nCellsID
 
-      status = nf90_put_att(ncid, centerCoordsID, 'units', 'degrees')
+      status = nf90_put_att(ncid, nodeCoordsID, 'units', 'degrees')
       if (status /= nf90_noerr) then
-          write(0,*) "mpas2esmf: Error occured in nf90_put_att for 'units' for 'centerCoordsID'"
+          write(0,*) "mpas2esmf: Error occured in nf90_put_att for 'units' for 'nodeCoordsID'"
           write(0,*) trim(nf90_strerror(status))
           stop 
       end if
@@ -432,12 +432,6 @@ module write_desc
       status = nf90_put_var(ncid, numElementConnID, nEdgesOnCell)
       if (status /= nf90_noerr) then
           write(0,*) "mpas2esmf: Error occured in nf90_put_var for 'numElementConn'"
-          write(0,*) trim(nf90_strerror(status))
-          stop 
-      end if
-      status = nf90_put_var(ncid, centerCoordsID, centerCoords)
-      if (status /= nf90_noerr) then
-          write(0,*) "mpas2esmf: Error occured in nf90_put_var for 'centerCoords'"
           write(0,*) trim(nf90_strerror(status))
           stop 
       end if
