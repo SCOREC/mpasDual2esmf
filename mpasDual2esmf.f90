@@ -8,7 +8,7 @@ module read_mesh
    
    subroutine read_mpas_mesh(filename, &
                              nCells, nVertices, maxEdges, &
-                             latCell, lonCell, latVertex, lonVertex, nEdgesOnCell, verticesOnCell, areaCell, &
+                             latCell, lonCell, latVertex, lonVertex, nEdgesOnCell, cellsOnVertices, areaCell, &
                              sphere_radius, on_sphere)
    
       use netcdf
@@ -19,14 +19,14 @@ module read_mesh
       integer, intent(inout) :: nCells, nVertices, maxEdges
       double precision, dimension(:), pointer :: latCell, lonCell, latVertex, lonVertex, areaCell
       integer, dimension(:), pointer :: nEdgesOnCell
-      integer, dimension(:,:), pointer :: verticesOnCell
+      integer, dimension(:,:), pointer :: cellsOnVertices
       double precision, intent(inout) :: sphere_radius
       integer, intent(inout) :: on_sphere
 
       integer :: on_sphere_str_len
       character (len = 80) :: on_sphere_str
       integer :: ncid, nCellsID, nVerticesID, maxEdgesID, latCellID, lonCellID, &
-                 latVertexID, lonVertexID, nEdgesOnCellID, verticesOnCellID, areaCellID, status
+                 latVertexID, lonVertexID, nEdgesOnCellID, cellsOnVerticesID, areaCellID, status
    
       status = nf90_open(path=trim(filename), mode=nf90_nowrite, ncid=ncid)
       if (status /= nf90_noerr) then
@@ -82,7 +82,7 @@ module read_mesh
       allocate(latVertex(nVertices))
       allocate(lonVertex(nVertices))
       allocate(nEdgesOnCell(nCells))
-      allocate(verticesOnCell(maxEdges,nCells))
+      allocate(cellsOnVertices(3,nVertices))
       allocate(areaCell(nCells))
    
       status = nf90_inq_varid(ncid, 'latCell',   latCellID)
@@ -121,9 +121,9 @@ module read_mesh
           stop 
       end if
 
-      status = nf90_inq_varid(ncid, 'verticesOnCell', verticesOnCellID)
+      status = nf90_inq_varid(ncid, 'cellsOnVertex', cellsOnVerticesID)
       if (status /= nf90_noerr) then
-          write(0,*) "mpas2esmf: Error on inquire varid of 'verticesOnCellID'"
+          write(0,*) "mpas2esmf: Error on inquire varid of 'cellsOnVerticesID'"
           write(0,*) trim(nf90_strerror(status))
           stop 
       end if
@@ -170,9 +170,9 @@ module read_mesh
           stop 
       end if
 
-      status = nf90_get_var(ncid, verticesOnCellID, verticesOnCell)
+      status = nf90_get_var(ncid, cellsOnVerticesID, cellsOnVerticesID)
       if (status /= nf90_noerr) then
-          write(0,*) "mpas2esmf: Error on get var of 'verticesOnCell'"
+          write(0,*) "mpas2esmf: Error on get var of 'cellsOnVertices'"
           write(0,*) trim(nf90_strerror(status))
           stop 
       end if
@@ -227,8 +227,7 @@ module write_desc
    subroutine write_esmf_mesh(filename, &
                               input_file, title, datestring, &
                               nCells, nVertices, maxEdges, &
-                              centerCoords, nodeCoords, elementConn, nEdgesOnCell, &
-                              grid_area, grid_imask)
+                              nodeCoords, elementConn, nEdgesOnCell)
    
       use netcdf
    
@@ -239,10 +238,9 @@ module write_desc
       character (len=*), intent(in) :: title
       character (len=*), intent(in) :: datestring
       integer, intent(inout) :: nCells, nVertices, maxEdges
-      double precision, dimension(:), pointer :: grid_area
       double precision, dimension(:,:), pointer :: centerCoords, nodeCoords
       integer, dimension(:,:), pointer :: elementConn
-      integer, dimension(:), pointer :: grid_imask, nEdgesOnCell
+      integer, dimension(:), pointer :: nEdgesOnCell
    
    
       integer :: ncid, nVerticesID, nCellsID, maxNodePElementID, coordDimID, status
@@ -443,18 +441,6 @@ module write_desc
           write(0,*) trim(nf90_strerror(status))
           stop 
       end if
-      status = nf90_put_var(ncid, elementAreaID, grid_area)
-      if (status /= nf90_noerr) then
-          write(0,*) "mpas2esmf: Error occured in nf90_put_var for 'elementArea'"
-          write(0,*) trim(nf90_strerror(status))
-          stop 
-      end if
-      status = nf90_put_var(ncid, elementMaskID, grid_imask)
-      if (status /= nf90_noerr) then
-          write(0,*) "mpas2esmf: Error occured in nf90_put_var for 'elementMask'"
-          write(0,*) trim(nf90_strerror(status))
-          stop 
-      end if
 
       status = nf90_close(ncid) 
       if (status /= nf90_noerr) then
@@ -481,9 +467,9 @@ program mpas2esmf
    double precision, dimension(:), pointer :: latCell, lonCell, latVertex, lonVertex, grid_area
    integer, dimension(:), pointer :: nEdgesOnCell
    integer, dimension(:), pointer :: nEdgesOnDualCell
-   integer, dimension(:,:), pointer :: verticesOnCell, elementConn
-   double precision, dimension(:,:), pointer :: latVerticesOnCell, lonVerticesOnCell, &
-                                                nodeCoords 
+   integer, dimension(:,:), pointer :: cellsOnVertices, elementConn
+   double precision, dimension(:,:), pointer :: nodeCoords
+
    double precision :: sphere_radius
    integer :: on_sphere
    integer, dimension(:), pointer :: grid_imask
@@ -504,7 +490,7 @@ program mpas2esmf
 
    call read_mpas_mesh(trim(input_file_name), &
                        nCells, nVertices, maxEdges, &
-                       latCell, lonCell, latVertex, lonVertex, nEdgesOnCell, verticesOnCell, grid_area, &
+                       latCell, lonCell, latVertex, lonVertex, nEdgesOnCell, cellsOnVertices, grid_area, &
                        sphere_radius, on_sphere)
 
    !in MPAS the primary mesh is polygons and the dual is triangles (alwasy?)
@@ -524,64 +510,43 @@ program mpas2esmf
    !y, maxNodePElement, maxDualEdges
    !y, coordDim, <hardcoded to 2 in writer>
    !y, numElementConn, nEdgesOnDualCell
-   !n, nodeCoords, sphere: [lat|lon]Cell plane: [x|y]Cell  ! not sure about this...
+   !n, nodeCoords, nodeCoords (sphere: [lat|lon]Cell)
    !n, elementConn(2D), 
-
-   stop
 
    write(0,'(A)',advance='no') "mpas2esmf: Allocating and creating fields for ESMF file ... "
 
-   allocate(latVerticesOnCell(maxEdges,nCells))
-   allocate(lonVerticesOnCell(maxEdges,nCells))
-   allocate(nodeCoords(2,nVertices))
-   allocate(elementConn(maxEdges,nCells))
+   allocate(nodeCoords(nDualVertices,2))
+   nodeCoords(:,1) = lonCell(:)
+   nodeCoords(:,2) = latCell(:)
+
    allocate(grid_imask(nCells))
-
-   do iCell=1,nCells
-      do iVtx=1,nEdgesOnCell(iCell)
-         latVerticesOnCell(iVtx,iCell) = latVertex(verticesOnCell(iVtx,iCell))
-         lonVerticesOnCell(iVtx,iCell) = lonVertex(verticesOnCell(iVtx,iCell))
-         elementConn(iVtx,iCell) = verticesOnCell(iVtx,iCell)
-      end do
-      do iVtx=nEdgesOnCell(iCell)+1,maxEdges
-         latVerticesOnCell(iVtx,iCell) = latVerticesOnCell(iVtx-1,iCell)
-         lonVerticesOnCell(iVtx,iCell) = lonVerticesOnCell(iVtx-1,iCell)
-         elementConn(iVtx,iCell)       = -1
-      end do
-   end do
-
-   do iVtx=1,nVertices
-      nodeCoords(1,iVtx) = lonVertex(iVtx)
-      nodeCoords(2,iVtx) = latVertex(iVtx)
-   end do
-
    grid_imask(:) = 1
 
+   allocate(elementConn(nDualCells,maxDualEdges))
    do iVtx=1,nVertices
-      nodeCoords(1,iVtx) = nodeCoords(1,iVtx) * 90.0 / asin(1.0)
-      nodeCoords(2,iVtx) = nodeCoords(2,iVtx) * 90.0 / asin(1.0)
+      do iCell=1,maxDualEdges
+         elementConn(iVtx,iCell) = cellsOnVertices(iCell,iVtx)
+      end do
    end do
 
    write(0,*) "DONE!"
    write(0,'(A)',advance='no') "mpas2esmf: Writing ESMF files ... "
 
-!   call write_esmf_mesh('mpas_esmf.nc', &
-!                        input_file_name, title, datestring, &
-!                        nDualTris, nDualVertices, maxDualEdges, &
-!                        dualVertexCoords, elementConn, nEdgesOnCell, &
-!                        grid_area, grid_imask)
+   call write_esmf_mesh('mpas_esmf.nc', &
+                        input_file_name, title, datestring, &
+                        nDualCells, nDualVertices, maxDualEdges, &
+                        nodeCoords, elementConn, nEdgesOnDualCell)
+                        
 
    write(0,*) "DONE!"
 
    deallocate(latCell)
    deallocate(lonCell)
-   deallocate(latVertex)
-   deallocate(lonVertex)
-   deallocate(nEdgesOnCell)
-   deallocate(verticesOnCell)
+   deallocate(latVertex) !not used
+   deallocate(lonVertex) !not used
+   deallocate(nEdgesOnCell) !not used
+   deallocate(cellsOnVertices)
 
-   deallocate(latVerticesOnCell)
-   deallocate(lonVerticesOnCell)
    deallocate(nodeCoords)
    deallocate(elementConn)
    deallocate(grid_imask)
