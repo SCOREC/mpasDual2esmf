@@ -301,8 +301,8 @@ module write_desc
           stop 
       end if
 
-      id2(1) = maxNodePElementID
-      id2(2) = nCellsID
+      id2(1) = nCellsID
+      id2(2) = maxNodePElementID
       status = nf90_def_var(ncid, 'elementConn', NF90_INT, id2, elementConnID)
       if (status /= nf90_noerr) then
           write(0,*) "mpas2esmf: Error occured in nf90_def_var for 'elementConn'"
