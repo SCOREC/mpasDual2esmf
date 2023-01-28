@@ -285,8 +285,8 @@ module write_desc
           stop 
       end if
 
-      id2(1) = coordDimID
-      id2(2) = nVerticesID
+      id2(1) = nVerticesID
+      id2(2) = coordDimID
       status = nf90_def_var(ncid, 'nodeCoords', NF90_DOUBLE, id2, nodeCoordsID)
       if (status /= nf90_noerr) then
           write(0,*) "mpas2esmf: Error occured in nf90_def_var for 'nodeCoords'"
