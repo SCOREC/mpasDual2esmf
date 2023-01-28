@@ -244,8 +244,7 @@ module write_desc
    
    
       integer :: ncid, nVerticesID, nCellsID, maxNodePElementID, coordDimID, status
-      integer :: nodeCoordsID, elementConnID, numElementConnID, &
-                 elementAreaID, elementMaskID
+      integer :: nodeCoordsID, elementConnID, numElementConnID
       integer, dimension(1) :: id1
       integer, dimension(2) :: id2
 
@@ -344,37 +343,6 @@ module write_desc
       status = nf90_put_att(ncid, nodeCoordsID, 'units', 'degrees')
       if (status /= nf90_noerr) then
           write(0,*) "mpas2esmf: Error occured in nf90_put_att for 'units' for 'nodeCoordsID'"
-          write(0,*) trim(nf90_strerror(status))
-          stop 
-      end if
-
-      id1(1) = nCellsID
-      status = nf90_def_var(ncid, 'elementArea', NF90_DOUBLE, id1, elementAreaID)
-      if (status /= nf90_noerr) then
-          write(0,*) "mpas2esmf: Error occured in nf90_def_var for 'elementArea'"
-          write(0,*) trim(nf90_strerror(status))
-          stop 
-      end if
-
-      status = nf90_put_att(ncid, elementAreaID, 'units', 'radians^2')
-      if (status /= nf90_noerr) then
-          write(0,*) "mpas2esmf: Error occured in nf90_put_att for 'units' for 'elementAreaID'"
-          write(0,*) trim(nf90_strerror(status))
-          stop 
-      end if
-
-      status = nf90_put_att(ncid, elementAreaID, 'long_name', 'area weights')
-      if (status /= nf90_noerr) then
-          write(0,*) "mpas2esmf: Error occured in nf90_put_att for 'long_name' for 'elementAreaID'"
-          write(0,*) trim(nf90_strerror(status))
-          stop 
-      end if
-
-
-      id1(1) = nCellsID
-      status = nf90_def_var(ncid, 'elementMask', NF90_INT, id1, elementMaskID)
-      if (status /= nf90_noerr) then
-          write(0,*) "mpas2esmf: Error occured in nf90_def_var for 'elementMask'"
           write(0,*) trim(nf90_strerror(status))
           stop 
       end if
