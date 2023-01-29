@@ -170,7 +170,7 @@ module read_mesh
           stop 
       end if
 
-      status = nf90_get_var(ncid, cellsOnVerticesID, cellsOnVerticesID)
+      status = nf90_get_var(ncid, cellsOnVerticesID, cellsOnVertices)
       if (status /= nf90_noerr) then
           write(0,*) "mpas2esmf: Error on get var of 'cellsOnVertices'"
           write(0,*) trim(nf90_strerror(status))
