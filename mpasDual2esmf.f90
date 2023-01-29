@@ -284,8 +284,8 @@ module write_desc
           stop 
       end if
 
-      id2(1) = nVerticesID
-      id2(2) = coordDimID
+      id2(1) = coordDimID
+      id2(2) = nVerticesID
       status = nf90_def_var(ncid, 'nodeCoords', NF90_DOUBLE, id2, nodeCoordsID)
       if (status /= nf90_noerr) then
           write(0,*) "mpas2esmf: Error occured in nf90_def_var for 'nodeCoords'"
@@ -300,8 +300,8 @@ module write_desc
           stop 
       end if
 
-      id2(1) = nCellsID
-      id2(2) = maxNodePElementID
+      id2(1) = maxNodePElementID
+      id2(2) = nCellsID
       status = nf90_def_var(ncid, 'elementConn', NF90_INT, id2, elementConnID)
       if (status /= nf90_noerr) then
           write(0,*) "mpas2esmf: Error occured in nf90_def_var for 'elementConn'"
@@ -477,17 +477,17 @@ program mpas2esmf
 
    write(0,'(A)',advance='no') "mpas2esmf: Allocating and creating fields for ESMF file ... "
 
-   allocate(nodeCoords(nDualVertices,2))
-   nodeCoords(:,1) = lonCell(:)
-   nodeCoords(:,2) = latCell(:)
+   allocate(nodeCoords(2,nDualVertices))
+   nodeCoords(1,:) = lonCell(:)
+   nodeCoords(2,:) = latCell(:)
 
    allocate(grid_imask(nCells))
    grid_imask(:) = 1
 
-   allocate(elementConn(nDualCells,maxDualEdges))
+   allocate(elementConn(maxDualEdges,nDualCells))
    do iVtx=1,nVertices
       do iCell=1,maxDualEdges
-         elementConn(iVtx,iCell) = cellsOnVertices(iCell,iVtx)
+         elementConn(iCell,iVtx) = cellsOnVertices(iCell,iVtx)
       end do
    end do
 
