@@ -324,7 +324,7 @@ module write_desc
       end if
 
       id1(1) = nCellsID
-      status = nf90_def_var(ncid, 'numElementConn', NF90_BYTE, id1, numElementConnID)
+      status = nf90_def_var(ncid, 'numElementConn', NF90_INT, id1, numElementConnID)
       if (status /= nf90_noerr) then
           write(0,*) "mpas2esmf: Error occured in nf90_def_var for 'numElementConn'"
           write(0,*) trim(nf90_strerror(status))
@@ -457,10 +457,10 @@ program mpas2esmf
 
    !in MPAS the primary mesh is polygons and the dual is triangles (alwasy?)
    maxDualEdges = 3 !hack... can this be read from source mpas mesh?
-   allocate(nEdgesOnDualCell(nDualCells))
-   nEdgesOnDualCell = 3
    nDualCells = nVertices
    nDualVertices = nCells
+   allocate(nEdgesOnDualCell(nDualCells))
+   nEdgesOnDualCell = 3
    write(0,*) "DONE!"
    write(0,*) "on_sphere", on_sphere
    write(0,*) "nDualVertices", nDualVertices
