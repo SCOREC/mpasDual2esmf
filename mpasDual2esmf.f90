@@ -486,9 +486,10 @@ program mpas2esmf
 
    allocate(elementConn(maxDualEdges,nDualCells))
    do iVtx=1,nVertices
-      do iCell=1,maxDualEdges
-         elementConn(iCell,iVtx) = cellsOnVertices(iCell,iVtx)
-      end do
+      !mpas and esmf have opposite vertex ordering for triangles
+      elementConn(1,iVtx) = cellsOnVertices(3,iVtx)
+      elementConn(2,iVtx) = cellsOnVertices(2,iVtx)
+      elementConn(3,iVtx) = cellsOnVertices(1,iVtx)
    end do
 
    write(0,*) "DONE!"
