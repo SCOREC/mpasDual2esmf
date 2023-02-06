@@ -424,7 +424,7 @@ program mpas2esmf
    implicit none
 
    integer :: nCells, nVertices, maxEdges
-   integer :: nDualCells, nDualVertices, maxDualEdges
+   integer :: nDualCells, nDualVertices, maxDualEdges, nTri
    integer :: iCell, iVtx
    double precision, dimension(:), pointer :: latCell, lonCell, latVertex, lonVertex, grid_area
    integer, dimension(:), pointer :: nEdgesOnCell
@@ -455,9 +455,31 @@ program mpas2esmf
                        latCell, lonCell, latVertex, lonVertex, nEdgesOnCell, cellsOnVertices, grid_area, &
                        sphere_radius, on_sphere)
 
-   !in MPAS the primary mesh is polygons and the dual is triangles (alwasy?)
    maxDualEdges = 3 !hack... can this be read from source mpas mesh?
-   nDualCells = nVertices
+
+   !primal vertices that don't bound three primal cells
+   ! don't form valid dual triangles
+   ! see figure 5.3 of mpas spec
+   nTri=0
+   do iVtx=1,nVertices
+     if (all(cellsOnVertices(:,iVtx) /= 0)) then
+       nTri = nTri+1
+     end if
+   end do
+   allocate(elementConn(maxDualEdges,nTri))
+   nDualCells = nTri
+   nTri=1 !1-based indexing
+   do iVtx=1,nVertices
+      if (all(cellsOnVertices(:,iVtx) /= 0)) then
+        !mpas and esmf have opposite vertex ordering for triangles
+        elementConn(1,nTri) = cellsOnVertices(3,iVtx)
+        elementConn(2,nTri) = cellsOnVertices(2,iVtx)
+        elementConn(3,nTri) = cellsOnVertices(1,iVtx)
+        nTri = nTri+1
+      end if
+   end do
+
+   !in MPAS the primary mesh is polygons and the dual is triangles (alwasy?)
    nDualVertices = nCells
    allocate(nEdgesOnDualCell(nDualCells))
    nEdgesOnDualCell = 3
@@ -473,7 +495,7 @@ program mpas2esmf
    !y, coordDim, <hardcoded to 2 in writer>
    !y, numElementConn, nEdgesOnDualCell
    !n, nodeCoords, nodeCoords (sphere: [lat|lon]Cell)
-   !n, elementConn(2D), 
+   !n, elementConn(2D),
 
    write(0,'(A)',advance='no') "mpas2esmf: Allocating and creating fields for ESMF file ... "
 
@@ -483,14 +505,6 @@ program mpas2esmf
 
    allocate(grid_imask(nCells))
    grid_imask(:) = 1
-
-   allocate(elementConn(maxDualEdges,nDualCells))
-   do iVtx=1,nVertices
-      !mpas and esmf have opposite vertex ordering for triangles
-      elementConn(1,iVtx) = cellsOnVertices(3,iVtx)
-      elementConn(2,iVtx) = cellsOnVertices(2,iVtx)
-      elementConn(3,iVtx) = cellsOnVertices(1,iVtx)
-   end do
 
    write(0,*) "DONE!"
    write(0,'(A)',advance='no') "mpas2esmf: Writing ESMF files ... "
