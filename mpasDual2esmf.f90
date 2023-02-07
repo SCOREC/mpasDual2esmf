@@ -8,7 +8,7 @@ module read_mesh
    
    subroutine read_mpas_mesh(filename, &
                              nCells, nVertices, maxEdges, &
-                             latCell, lonCell, latVertex, lonVertex, nEdgesOnCell, cellsOnVertices, areaCell, &
+                             latCell, lonCell, xCell, yCell, cellsOnVertices, areaCell, &
                              sphere_radius, on_sphere)
    
       use netcdf
@@ -17,16 +17,15 @@ module read_mesh
    
       character (len=*), intent(in) :: filename
       integer, intent(inout) :: nCells, nVertices, maxEdges
-      double precision, dimension(:), pointer :: latCell, lonCell, latVertex, lonVertex, areaCell
-      integer, dimension(:), pointer :: nEdgesOnCell
+      double precision, dimension(:), pointer :: latCell, lonCell, xCell, yCell, areaCell
       integer, dimension(:,:), pointer :: cellsOnVertices
       double precision, intent(inout) :: sphere_radius
       integer, intent(inout) :: on_sphere
 
       integer :: on_sphere_str_len
       character (len = 80) :: on_sphere_str
-      integer :: ncid, nCellsID, nVerticesID, maxEdgesID, latCellID, lonCellID, &
-                 latVertexID, lonVertexID, nEdgesOnCellID, cellsOnVerticesID, areaCellID, status
+      integer :: ncid, nCellsID, nVerticesID, maxEdgesID, latCellID, lonCellID, xCellID, yCellID, &
+                 cellsOnVerticesID, areaCellID, status
    
       status = nf90_open(path=trim(filename), mode=nf90_nowrite, ncid=ncid)
       if (status /= nf90_noerr) then
@@ -79,9 +78,8 @@ module read_mesh
    
       allocate(latCell(nCells))
       allocate(lonCell(nCells))
-      allocate(latVertex(nVertices))
-      allocate(lonVertex(nVertices))
-      allocate(nEdgesOnCell(nCells))
+      allocate(xCell(nCells))
+      allocate(yCell(nCells))
       allocate(cellsOnVertices(3,nVertices))
       allocate(areaCell(nCells))
    
@@ -100,23 +98,16 @@ module read_mesh
           stop 
       end if
 
-      status = nf90_inq_varid(ncid, 'latVertex', latVertexID)
+      status = nf90_inq_varid(ncid, 'xCell',   xCellID)
       if (status /= nf90_noerr) then
-          write(0,*) "mpas2esmf: Error on inquire varid of 'latVertex'"
+          write(0,*) "mpas2esmf: Error on inquire varid of 'xCell'"
           write(0,*) trim(nf90_strerror(status))
           stop 
       end if
 
-      status = nf90_inq_varid(ncid, 'lonVertex', lonVertexID)
+      status = nf90_inq_varid(ncid, 'yCell',   yCellID)
       if (status /= nf90_noerr) then
-          write(0,*) "mpas2esmf: Error on inquire varid of 'lonVertex'"
-          write(0,*) trim(nf90_strerror(status))
-          stop 
-      end if
-
-      status = nf90_inq_varid(ncid, 'nEdgesOnCell', nEdgesOnCellID)
-      if (status /= nf90_noerr) then
-          write(0,*) "mpas2esmf: Error on inquire varid of 'nEdgesOnCell'"
+          write(0,*) "mpas2esmf: Error on inquire varid of 'yCell'"
           write(0,*) trim(nf90_strerror(status))
           stop 
       end if
@@ -149,23 +140,16 @@ module read_mesh
           stop 
       end if
 
-      status = nf90_get_var(ncid, latVertexID, latVertex)
+      status = nf90_get_var(ncid, xCellID, xCell)
       if (status /= nf90_noerr) then
-          write(0,*) "mpas2esmf: Error on get var of 'latVertex'"
+          write(0,*) "mpas2esmf: Error on get var of 'xCell'"
           write(0,*) trim(nf90_strerror(status))
           stop 
       end if
 
-      status = nf90_get_var(ncid, lonVertexID, lonVertex)
+      status = nf90_get_var(ncid, yCellID, yCell)
       if (status /= nf90_noerr) then
-          write(0,*) "mpas2esmf: Error on get var of 'lonVertex'"
-          write(0,*) trim(nf90_strerror(status))
-          stop 
-      end if
-
-      status = nf90_get_var(ncid, nEdgesOnCellID, nEdgesOnCell)
-      if (status /= nf90_noerr) then
-          write(0,*) "mpas2esmf: Error on get var of 'nEdgesOnCell'"
+          write(0,*) "mpas2esmf: Error on get var of 'yCell'"
           write(0,*) trim(nf90_strerror(status))
           stop 
       end if
@@ -227,7 +211,7 @@ module write_desc
    subroutine write_esmf_mesh(filename, &
                               input_file, title, datestring, &
                               nCells, nVertices, maxEdges, &
-                              nodeCoords, elementConn, nEdgesOnCell)
+                              nodeCoords, elementConn, nEdgesOnCell, useCartesianCoords)
    
       use netcdf
    
@@ -241,12 +225,14 @@ module write_desc
       double precision, dimension(:,:), pointer :: nodeCoords
       integer, dimension(:,:), pointer :: elementConn
       integer, dimension(:), pointer :: nEdgesOnCell
+      logical, intent(in) :: useCartesianCoords
    
    
       integer :: ncid, nVerticesID, nCellsID, maxNodePElementID, coordDimID, status
       integer :: nodeCoordsID, elementConnID, numElementConnID
       integer, dimension(1) :: id1
       integer, dimension(2) :: id2
+      character (len=64) :: coordsUnitsString
 
 
       status = nf90_create(trim(filename), NF90_64BIT_OFFSET, ncid)
@@ -293,7 +279,12 @@ module write_desc
           stop 
       end if
 
-      status = nf90_put_att(ncid, nodeCoordsID, 'units', 'degrees')
+      if(useCartesianCoords) then
+        coordsUnitsString = "km"
+      else
+        coordsUnitsString = "degrees"
+      endif
+      status = nf90_put_att(ncid, nodeCoordsID, 'units', trim(coordsUnitsString))
       if (status /= nf90_noerr) then
           write(0,*) "mpas2esmf: Error occured in nf90_put_att for 'units' for 'nodeCoordsID'"
           write(0,*) trim(nf90_strerror(status))
@@ -339,13 +330,6 @@ module write_desc
 
       id2(1) = coordDimID
       id2(2) = nCellsID
-
-      status = nf90_put_att(ncid, nodeCoordsID, 'units', 'degrees')
-      if (status /= nf90_noerr) then
-          write(0,*) "mpas2esmf: Error occured in nf90_put_att for 'units' for 'nodeCoordsID'"
-          write(0,*) trim(nf90_strerror(status))
-          stop 
-      end if
 
       status = nf90_put_att(ncid, NF90_GLOBAL, 'gridType', 'unstructured')
       if (status /= nf90_noerr) then
@@ -426,8 +410,7 @@ program mpas2esmf
    integer :: nCells, nVertices, maxEdges
    integer :: nDualCells, nDualVertices, maxDualEdges, nTri
    integer :: iCell, iVtx
-   double precision, dimension(:), pointer :: latCell, lonCell, latVertex, lonVertex, grid_area
-   integer, dimension(:), pointer :: nEdgesOnCell
+   double precision, dimension(:), pointer :: latCell, lonCell, xCell, yCell, grid_area
    integer, dimension(:), pointer :: nEdgesOnDualCell
    integer, dimension(:,:), pointer :: cellsOnVertices, elementConn
    double precision, dimension(:,:), pointer :: nodeCoords
@@ -438,21 +421,29 @@ program mpas2esmf
    character (len=1024) :: input_file_name
    character (len=1024) :: title
    character (len=1024) :: datestring
+   character (len=1024) :: cartesianCoordsString
+   logical :: useCartesianCoords
 
-   if (command_argument_count() /= 3) then
-      write(0,*) 'Usage: mpas2esmf <mpas grid file> <title> <date>'
+   if (command_argument_count() /= 4) then
+      write(0,*) 'Usage: mpas2esmf <mpas grid file> <title> <date> <cartesianCoords=[off|on]>'
       stop
    end if
 
    call getarg(1,input_file_name)
    call getarg(2,title)
    call getarg(3,datestring)
+   call getarg(4,cartesianCoordsString)
+   if ( trim(cartesianCoordsString) == "on" ) then
+     useCartesianCoords = .true.
+   else
+     useCartesianCoords = .false.
+   end if
 
    write(0,'(A)',advance='no') "mpas2esmf: Reading MPAS mesh ... "
 
    call read_mpas_mesh(trim(input_file_name), &
                        nCells, nVertices, maxEdges, &
-                       latCell, lonCell, latVertex, lonVertex, nEdgesOnCell, cellsOnVertices, grid_area, &
+                       latCell, lonCell, xCell, yCell, cellsOnVertices, grid_area, &
                        sphere_radius, on_sphere)
 
    maxDualEdges = 3 !hack... can this be read from source mpas mesh?
@@ -500,8 +491,13 @@ program mpas2esmf
    write(0,'(A)',advance='no') "mpas2esmf: Allocating and creating fields for ESMF file ... "
 
    allocate(nodeCoords(2,nDualVertices))
-   nodeCoords(1,:) = lonCell(:)
-   nodeCoords(2,:) = latCell(:)
+   if (useCartesianCoords) then
+     nodeCoords(1,:) = xCell(:)
+     nodeCoords(2,:) = yCell(:)
+   else
+     nodeCoords(1,:) = latCell(:)
+     nodeCoords(2,:) = lonCell(:)
+   end if
 
    allocate(grid_imask(nCells))
    grid_imask(:) = 1
@@ -512,17 +508,17 @@ program mpas2esmf
    call write_esmf_mesh('mpas_esmf.nc', &
                         input_file_name, title, datestring, &
                         nDualCells, nDualVertices, maxDualEdges, &
-                        nodeCoords, elementConn, nEdgesOnDualCell)
+                        nodeCoords, elementConn, nEdgesOnDualCell, useCartesianCoords)
                         
 
    write(0,*) "DONE!"
 
    deallocate(latCell)
    deallocate(lonCell)
-   deallocate(latVertex) !not used
-   deallocate(lonVertex) !not used
-   deallocate(nEdgesOnCell) !not used
+   deallocate(xCell)
+   deallocate(yCell)
    deallocate(cellsOnVertices)
+   deallocate(nEdgesOnDualCell)
 
    deallocate(nodeCoords)
    deallocate(elementConn)
