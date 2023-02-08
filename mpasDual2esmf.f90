@@ -1,11 +1,32 @@
 ! mpas2esmf.F90 - Create an ESMF and SCRIP file from an MPAS grid
 !
 !
-
 module read_mesh
 
    contains
-   
+
+   subroutine read_mpas_field(netcdfFile, fieldName, fieldVals)
+      use netcdf
+      implicit none
+      integer, intent(in) :: netcdfFile
+      character (len=*), intent(in) :: fieldName
+      double precision, dimension(:) :: fieldVals
+      integer :: ncid, fieldID, status
+
+      status = nf90_inq_varid(netcdfFile, trim(fieldName), fieldID)
+      if (status /= nf90_noerr) then
+          write(0,*) "mpas2esmf: Error on inquire varid of ", trim(fieldName)
+          write(0,*) trim(nf90_strerror(status))
+          stop
+      end if
+      status = nf90_get_var(netcdfFile, fieldID, fieldVals)
+      if (status /= nf90_noerr) then
+          write(0,*) "mpas2esmf: Error on get var of ", trim(fieldName)
+          write(0,*) trim(nf90_strerror(status))
+          stop
+      end if
+   end subroutine read_mpas_field
+
    subroutine read_mpas_mesh(filename, &
                              nCells, nVertices, maxEdges, &
                              latCell, lonCell, xCell, yCell, cellsOnVertices, areaCell, &
@@ -404,6 +425,7 @@ program mpas2esmf
 
    use read_mesh
    use write_desc
+   use netcdf
 
    implicit none
 
@@ -423,6 +445,10 @@ program mpas2esmf
    character (len=1024) :: datestring
    character (len=1024) :: cartesianCoordsString
    logical :: useCartesianCoords
+
+   integer :: numFields, fieldIdx, netcdfFile, status
+   character (len=1024), dimension(:), pointer :: fieldNames
+   double precision, dimension(:,:), pointer :: fieldVals
 
    if (command_argument_count() /= 4) then
       write(0,*) 'Usage: mpas2esmf <mpas grid file> <title> <date> <cartesianCoords=[off|on]>'
@@ -505,11 +531,21 @@ program mpas2esmf
    write(0,*) "DONE!"
    write(0,'(A)',advance='no') "mpas2esmf: Writing ESMF files ... "
 
+   numFields = 2 ! read from the field list file
+   allocate(fieldNames(numFields))
+   allocate(fieldVals(numFields,nCells))
+   fieldNames(1) = "observedSurfaceVelocityX"
+   fieldNames(2) = "observedSurfaceVelocityY"
+   status = nf90_open(path=trim(input_file_name), mode=nf90_nowrite, ncid=netcdfFile)
+   do fieldIdx = 1, numFields
+     call read_mpas_field(netcdfFile, fieldNames(fieldIdx), fieldVals(fieldIdx,:))
+   end do
+   status = nf90_close(netcdfFile)
+
    call write_esmf_mesh('mpas_esmf.nc', &
                         input_file_name, title, datestring, &
                         nDualCells, nDualVertices, maxDualEdges, &
                         nodeCoords, elementConn, nEdgesOnDualCell, useCartesianCoords)
-                        
 
    write(0,*) "DONE!"
 
@@ -525,6 +561,8 @@ program mpas2esmf
    deallocate(grid_imask)
    deallocate(grid_area)
 
+   deallocate(fieldNames)
+   deallocate(fieldVals)
    write(0,*) "mpas2emsf: FINISHED!"
 
 end program mpas2esmf
